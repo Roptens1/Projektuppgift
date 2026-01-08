@@ -5,15 +5,14 @@ namespace Projektuppgift
 {
     class Program
     {
-        // Kundvagn
-        static List<Product> cart = new List<Product>();
-        // Produktlista
         static List<Product> products = new List<Product>()
         {
-               new Product { Id = 1, Name = "Mjölk", Price = 15, Stock = 20 },
-               new Product { Id = 2, Name = "Bröd", Price = 25, Stock = 10 },
-               new Product { Id = 3, Name = "Ägg",  Price = 30, Stock = 50 }
+            new Product { Id = 1, Name = "Mjölk", Price = 15, Stock = 20 },
+            new Product { Id = 2, Name = "Bröd", Price = 25, Stock = 10 },
+            new Product { Id = 3, Name = "Ägg",  Price = 30, Stock = 50 }
         };
+
+        static List<CartItem> cart = new List<CartItem>();
 
         static void Main(string[] args)
         {
@@ -24,142 +23,316 @@ namespace Projektuppgift
                 Console.Clear();
                 Console.WriteLine("MENY");
                 Console.WriteLine("1. Visa produkter");
-                Console.WriteLine("2. Lägg till_produkt i kundvagn");
-                Console.WriteLine("3. Visa kundvagn");
-                Console.WriteLine("4. Ta bort produkt");
-                Console.WriteLine("7. Avsluta");
+                Console.WriteLine("2. Lägg till produkt i kundvagn");
+                Console.WriteLine("3. Hantera kundvagn");
+                Console.WriteLine("4. Admin – hantera produkter");
+                Console.WriteLine("5. Avsluta & visa kvitto");
                 Console.Write("Välj: ");
 
                 string val = Console.ReadLine();
 
                 switch (val)
                 {
-                    case "1":
-                        VisaProdukter();
-                        break;
-                    case "2":
-                        Lägg_till_produkt_i_kundvagn();
-                        break;
-
-                    case "3":
-                        Visa_kundvagn();
-                        break;
-
-
-
-                    case "7":
+                    case "1": VisaProdukter(); break;
+                    case "2": LäggTillProdukt(); break;
+                    case "3": HanteraKundvagn(); break;
+                    case "4": AdminMeny(); break;
+                    case "5":
+                        VisaKvitto();
                         run = false;
                         break;
-
                     default:
-                        Console.WriteLine("Fel val. Tryck Enter.");
+                        Console.WriteLine("Fel val.");
                         Console.ReadLine();
                         break;
                 }
             }
         }
 
-        // METODEN för att visa produkter när man trycker 1 i menyn
+        // ===== VISA PRODUKTER =====
         static void VisaProdukter()
         {
             Console.Clear();
-            Console.WriteLine("Produkter:\n");
-
             foreach (Product p in products)
-            {
-                Console.WriteLine(
-                    $"ID: {p.Id} | {p.Name} | {p.Price} kr | Lager: {p.Stock}"
-                );
-            }
-
-            Console.WriteLine("\nTryck Enter för att fortsätta.");
+                Console.WriteLine($"ID:{p.Id} | {p.Name} | {p.Price} kr | Lager:{p.Stock}");
             Console.ReadLine();
         }
 
+        // ===== LÄGG TILL =====
+        static void LäggTillProdukt()
+        {
+            try
+            {
+                VisaProdukter();
+
+                Console.Write("Produkt-ID: ");
+                int id = int.Parse(Console.ReadLine());
+
+                Product p = products.Find(x => x.Id == id);
+                if (p == null)
+                {
+                    Console.WriteLine("Produkten finns inte.");
+                    Console.ReadLine();
+                    return;
+                }
+
+                Console.Write("Antal: ");
+                int qty = int.Parse(Console.ReadLine());
+
+                if (qty <= 0 || qty > p.Stock)
+                {
+                    Console.WriteLine("Fel antal.");
+                    Console.ReadLine();
+                    return;
+                }
+
+                CartItem item = cart.Find(c => c.Product.Id == id);
+                if (item == null)
+                    cart.Add(new CartItem { Product = p, Quantity = qty });
+                else
+                    item.Quantity += qty;
+
+                p.Stock -= qty;
+
+                Console.WriteLine("Produkten har lagts till i kundvagnen.");
+                Console.ReadLine();
+            }
+            catch
+            {
+                Console.WriteLine("Fel inmatning. Använd siffror.");
+                Console.ReadLine();
+            }
+        }
 
 
-        // METODEN för att lägga till produkt i kundvagn när man trycker 2 i menyn
-        static void Lägg_till_produkt_i_kundvagn()
+        // ===== HANTERA KUNDVAGN =====
+        static void HanteraKundvagn()
         {
             Console.Clear();
-            VisaProdukter();
-
-            Console.Write("\nAnge produkt-ID: ");
-            string idInput = Console.ReadLine();
-
-            if (!int.TryParse(idInput, out int id))
+            if (cart.Count == 0)
             {
-                Console.WriteLine("Felaktigt ID.");
+                Console.WriteLine("Kundvagnen är tom.");
                 Console.ReadLine();
                 return;
             }
 
-            Product found = products.Find(p => p.Id == id);
+            double total = 0;
+            foreach (CartItem c in cart)
+            {
+                double sum = c.Product.Price * c.Quantity;
+                Console.WriteLine($"ID:{c.Product.Id} {c.Product.Name} x{c.Quantity} = {sum} kr");
+                total += sum;
+            }
 
-            if (found == null)
+            Console.WriteLine($"\nTotal: {total} kr");
+            Console.WriteLine("1. Ändra antal");
+            Console.WriteLine("2. Ta bort produkt");
+            Console.WriteLine("3. Töm kundvagn");
+            Console.WriteLine("4. Tillbaka");
+            Console.Write("Välj: ");
+
+            string val = Console.ReadLine();
+
+            if (val == "1") ÄndraAntal();
+            if (val == "2") TaBortProdukt();
+            if (val == "3") TömKundvagn();
+        }
+
+        static void ÄndraAntal()
+        {
+            Console.Write("Produkt-ID: ");
+            int id = int.Parse(Console.ReadLine());
+
+            CartItem item = cart.Find(c => c.Product.Id == id);
+            if (item == null) return;
+
+            Console.Write("Nytt antal: ");
+            int nytt = int.Parse(Console.ReadLine());
+
+            int diff = nytt - item.Quantity;
+            if (diff > item.Product.Stock) return;
+
+            item.Product.Stock -= diff;
+            item.Quantity = nytt;
+        }
+
+        static void TaBortProdukt()
+        {
+            Console.Write("Produkt-ID: ");
+            int id = int.Parse(Console.ReadLine());
+
+            CartItem item = cart.Find(c => c.Product.Id == id);
+            if (item == null) return;
+
+            item.Product.Stock += item.Quantity;
+            cart.Remove(item);
+        }
+
+        static void TömKundvagn()
+        {
+            foreach (CartItem c in cart)
+                c.Product.Stock += c.Quantity;
+            cart.Clear();
+            Console.WriteLine("Kundvagnen är tömd.");
+            Console.ReadLine();
+        }
+
+        // ===== ADMIN =====
+        static void AdminMeny()
+        {
+            Console.Clear();
+            Console.Write("Lösenord: ");
+            if (Console.ReadLine() != "admin")
+            {
+                Console.WriteLine("Fel lösenord.");
+                Console.ReadLine();
+                return;
+            }
+
+            Console.Clear();
+            Console.WriteLine("ADMINMENY");
+            Console.WriteLine("1. Lägg till produkt");
+            Console.WriteLine("2. Ta bort produkt");
+            Console.WriteLine("3. Ändra pris på produkt");
+            Console.WriteLine("4. Ändra lagerantal");
+            Console.WriteLine("5. Tillbaka");
+            Console.Write("Välj: ");
+
+            string val = Console.ReadLine();
+
+            switch (val)
+            {
+                case "1":
+                    AdminLaggTillProdukt();
+                    break;
+
+                case "2":
+                    AdminTaBortProdukt();
+                    break;
+
+                case "3":
+                    AdminAndraPris();
+                    break;
+
+                case "4":
+                    AdminAndraLager();
+                    break;
+            }
+        }
+        //ADMIN ÄNDRA PRIS
+        static void AdminAndraPris()
+        {
+            VisaProdukter();
+
+            Console.Write("Produkt-ID: ");
+            int id = int.Parse(Console.ReadLine());
+
+            Product p = products.Find(x => x.Id == id);
+            if (p == null) return;
+
+            Console.Write("Nytt pris: ");
+            p.Price = double.Parse(Console.ReadLine());
+
+            Console.WriteLine("Priset har ändrats.");
+            Console.ReadLine();
+        }
+
+
+        // ADMIN ÄNDRA LAGERANTAL
+
+        static void AdminAndraLager()
+        {
+            VisaProdukter();
+
+            Console.Write("Produkt-ID: ");
+            int id = int.Parse(Console.ReadLine());
+
+            Product p = products.Find(x => x.Id == id);
+            if (p == null) return;
+
+            Console.Write("Nytt lagerantal: ");
+            p.Stock = int.Parse(Console.ReadLine());
+
+            Console.WriteLine("Lagerantalet har ändrats.");
+            Console.ReadLine();
+        }
+        // ADMIN TA BORT EN PRODUKT
+        static void AdminTaBortProdukt()
+        {
+            VisaProdukter();
+
+            Console.Write("Ange produkt-ID att ta bort: ");
+            int id = int.Parse(Console.ReadLine());
+
+            Product p = products.Find(x => x.Id == id);
+
+            if (p == null)
             {
                 Console.WriteLine("Produkten finns inte.");
                 Console.ReadLine();
                 return;
             }
 
-            Console.Write($"Hur många {found.Name} vill du lägga till? ");
-            string qtyInput = Console.ReadLine();
+            products.Remove(p);
 
-            if (!int.TryParse(qtyInput, out int quantity) || quantity <= 0)
-            {
-                Console.WriteLine("Felaktigt antal.");
-                Console.ReadLine();
-                return;
-            }
-
-            if (quantity > found.Stock)
-            {
-                Console.WriteLine("Det finns inte så många i lager.");
-                Console.ReadLine();
-                return;
-            }
-
-            // Lägg produkten flera gånger
-            for (int i = 0; i < quantity; i++)
-            {
-                cart.Add(found);
-            }
-
-            found.Stock -= quantity;
-
-            Console.WriteLine($"{quantity} st {found.Name} lades till i kundvagnen.");
+            Console.WriteLine("Produkten har tagits bort.");
             Console.ReadLine();
         }
 
+        // ADMIN LÄGG TILL EN PRODUKT
+        static void AdminLaggTillProdukt()
+        {
+            try
+            {
+                Console.Clear();
 
-        // METODEN för att visa kund vagn när man trycker 3 i menyn
-        static void Visa_kundvagn()
+                Console.Write("Produktnamn: ");
+                string name = Console.ReadLine();
+
+                Console.Write("Pris: ");
+                double price = double.Parse(Console.ReadLine());
+
+                Console.Write("Lagerantal: ");
+                int stock = int.Parse(Console.ReadLine());
+
+                int newId = products.Count + 1;
+
+                products.Add(new Product
+                {
+                    Id = newId,
+                    Name = name,
+                    Price = price,
+                    Stock = stock
+                });
+
+                Console.WriteLine("Produkten har lagts till.");
+                Console.ReadLine();
+            }
+            catch
+            {
+                Console.WriteLine("Fel inmatning. Använd siffror.");
+                Console.ReadLine();
+            }
+        }
+
+
+        // ===== KVITTO =====
+        static void VisaKvitto()
         {
             Console.Clear();
+            double total = 0;
 
-            if (cart.Count == 0)
+            Console.WriteLine("KVITTO\n");
+            foreach (CartItem c in cart)
             {
-                Console.WriteLine("Kundvagnen är tom.");
-            }
-            else
-            {
-                double total = 0;
-                Console.WriteLine("Kundvagn:\n");
-
-                foreach (Product p in cart)
-                {
-                    Console.WriteLine($"{p.Name} - {p.Price} kr");
-                    total += p.Price;
-                }
-
-                Console.WriteLine($"\nTotalpris: {total} kr");
+                double sum = c.Product.Price * c.Quantity;
+                Console.WriteLine($"{c.Product.Name} x{c.Quantity} = {sum} kr");
+                total += sum;
             }
 
-            Console.WriteLine("\nTryck Enter.");
+            Console.WriteLine($"\nTOTALT: {total} kr");
+            Console.WriteLine("\nTack för ditt köp!");
             Console.ReadLine();
         }
-
-
     }
 }
